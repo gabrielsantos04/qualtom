@@ -47,6 +47,11 @@ jobs:
           key: qualtom-{{ .Branch }}-{{ checksum "Gemfile.lock" }}
           paths:
             - ./vendor/bundle
+      - persist_to_workspace:
+          root: ~/
+          paths:
+            - ./qualtom
+            - ./vendor/bundle
       - run:
           name: Wait for DB
           command: dockerize -wait tcp://127.0.0.1:5432 -timeout 1m
@@ -62,11 +67,6 @@ jobs:
                               --format progress
       - store_artifacts:
           path: coverage
-      - persist_to_workspace:
-          root: ~/
-          paths:
-            - ./qualtom
-            - ./vendor/bundle
 
 workflows:
   version: 2
