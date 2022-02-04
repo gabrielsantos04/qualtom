@@ -42,13 +42,15 @@ jobs:
       - configure_bundler
       - run:
           name: Install bundle
-          command: bundle install
+          command: bundle install --local
       - run:
           name: Wait for DB
           command: dockerize -wait tcp://127.0.0.1:5432 -timeout 1m
       - run:
           name: Setup DB
-          command: bundle install && bundle exec rails db:create db:schema:load --trace
+          command: |
+            bundle exec rails db:create db:schema:load --trace
+            bundle exec rails db:migrate
       - run:
           name: RSpec
           command: |
