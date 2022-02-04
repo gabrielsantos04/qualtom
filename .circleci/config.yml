@@ -61,12 +61,12 @@ jobs:
       - save_cache:
           key: qualtom-{{ .Branch }}-{{ checksum "Gemfile.lock" }}
           paths:
-            - ~/quantom/vendor/bundle
+            - ./vendor/bundle
       - persist_to_workspace:
           root: ~/
           paths:
-            - ~/qualtom
-            - ~/qualtom/vendor/bundle
+            - ./qualtom
+            - ./vendor/bundle
 
 workflows:
   version: 2
