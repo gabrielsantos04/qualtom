@@ -17,7 +17,7 @@
 default: &default
   adapter: postgresql
   encoding: unicode
-  host: localhost
+  host: <%= ENV.fetch("PGHOST") { 'db' } %>
   username: postgres
   password: postgres
   port: 5432
