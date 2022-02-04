@@ -49,7 +49,6 @@ jobs:
       - run:
           name: Setup DB
           command: |
-            bundle install --local
             bundle exec rails db:create db:schema:load --trace
             bundle exec rails db:migrate
       - run:
@@ -67,6 +66,7 @@ jobs:
           root: ~/
           paths:
             - ./qualtom
+            - ./vendor/bundle
 
 workflows:
   version: 2
