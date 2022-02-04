@@ -26,8 +26,8 @@ jobs:
             - qualtom-bundle-v2-{{ checksum "Gemfile.lock" }}
             - qualtom-bundle-v2-
       - run:
-        name: Bundle Install
-        command: bundle check --path vendor/bundle || bundle install --deployment
+          name: Bundle Install
+          command: bundle check --path vendor/bundle || bundle install --deployment
       - save_cache:
           key: qualtom-bundle-v2-{{ checksum "Gemfile.lock" }}
           paths:
