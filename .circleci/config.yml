@@ -42,7 +42,7 @@ jobs:
       - configure_bundler
       - run:
           name: Install bundle
-          command: bundle install
+          command: bundle install --local
       - run:
           name: Wait for DB
           command: dockerize -wait tcp://127.0.0.1:5432 -timeout 1m
@@ -61,12 +61,12 @@ jobs:
       - save_cache:
           key: qualtom-{{ .Branch }}-{{ checksum "Gemfile.lock" }}
           paths:
-            - vendor/bundle
+            - ~/quantom/vendor/bundle
       - persist_to_workspace:
           root: ~/
           paths:
-            - ./qualtom
-            - ./vendor/bundle
+            - ~/qualtom
+            - ~/qualtom/vendor/bundle
 
 workflows:
   version: 2
