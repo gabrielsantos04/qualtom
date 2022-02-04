@@ -1,74 +1,66 @@
-version: 2.1
+version: 2.1 # Use 2.1 to enable using orbs and other features.
 
-executors:
-  default:
-    working_directory: ~/qualtom
-    docker:
-      - image: circleci/ruby:3.0.3
-        environment:
-          BUNDLE_JOBS: 3
-          BUNDLE_PATH: vendor/bundle
-          BUNDLE_RETRY: 3
-          BUNDLER_VERSION: 2.2.32
-          RAILS_ENV: test
-          DB_HOST: 127.0.0.1
-          PG_HOST: 127.0.0.1
-          PGUSER: postgres
-      - image: circleci/postgres:12.0
-        environment:
-          POSTGRES_DB: qualtom_test
-          POSTGRES_USER: postgres
-
-commands:
-  configure_bundler:
-    description: Configure bundler
-    steps:
-      - run:
-          name: Configure bundler
-          command: |
-            echo 'export BUNDLER_VERSION=$(cat Gemfile.lock | tail -1 | tr -d " ")' >> $BASH_ENV
-            source $BASH_ENV
-            gem install bundler
-
+# Declare the orbs that we'll use in our config.
 orbs:
   ruby: circleci/ruby@1.0.6
+  node: circleci/node@3.0.1
 
 jobs:
-  build:
-    executor: default
+  build: # our first job, named "build"
+    docker:
+      - image: cimg/ruby:2.7.1-node # use a tailored CircleCI docker image.
+    steps:
+      - checkout # pull down our git code.
+      - ruby/install-deps # use the ruby orb to install dependencies
+      # use the node orb to install our packages
+      # specifying that we use `yarn` and to cache dependencies with `yarn.lock`
+      # learn more: https://circleci.com/docs/2.0/caching/
+      - node/install-packages:
+          pkg-manager: yarn
+
+  test:  # our next job, called "test"
+    # we run "parallel job containers" to enable speeding up our tests;
+    # this splits our tests across multiple containers.
+    parallelism: 3
+    # here we set TWO docker images.
+    docker:
+      - image: cimg/ruby:2.7.1-node # this is our primary docker image, where step commands run.
+      - image: circleci/postgres:12.3
+        environment: # add POSTGRES environment variables.
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: qualtom_test
+    # environment variables specific to Ruby/Rails, applied to the primary container.
+    environment:
+      BUNDLE_JOBS: "3"
+      BUNDLE_RETRY: "3"
+      PGHOST: 127.0.0.1
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      RAILS_ENV: test
+    # A series of steps to run, some are similar to those in "build".
     steps:
       - checkout
       - ruby/install-deps
-      - restore_cache:
-          keys:
-            - qualtom-{{ .Branch }}-{{ checksum "Gemfile.lock" }}
-            - qualtom-
+      - node/install-packages:
+          pkg-manager: yarn
+      # Here we make sure that the secondary container boots
+      # up before we run operations on the database.
       - run:
           name: Wait for DB
-          command: dockerize -wait tcp://127.0.0.1:5432 -timeout 1m
+          command: dockerize -wait tcp://localhost:5432 -timeout 1m
       - run:
-          name: Setup DB
-          command: |
-            bundle exec rails db:create db:schema:load --trace
-            bundle exec rails db:migrate
-      - run:
-          name: RSpec
-          command: |
-            bundle exec rspec --profile 10 \
-                              --format progress
-      - store_artifacts:
-          path: coverage
-      - save_cache:
-          key: qualtom-{{ .Branch }}-{{ checksum "Gemfile.lock" }}
-          paths:
-            - vendor/bundle
-      - persist_to_workspace:
-          root: ~/
-          paths:
-            - ./qualtom
+          name: Database setup
+          command: bundle exec rails db:create db:schema:load --trace
+      # Run rspec in parallel
+      - ruby/rspec-test
 
+# We use workflows to orchestrate the jobs that we declared above.
 workflows:
   version: 2
-  integration:
-    jobs:
-      - build
+  build_and_test:     # The name of our workflow is "build_and_test"
+    jobs:             # The list of jobs we run as part of this workflow.
+      - build         # Run build first.
+      - test:         # Then run test,
+          requires:   # Test requires that build passes for it to run.
+            - build
