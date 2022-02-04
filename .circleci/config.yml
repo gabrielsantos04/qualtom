@@ -1,50 +1,71 @@
-version: 2.0
-jobs:
-  build:
-    parallelism: 1
+version: 2.1
+
+executors:
+  default:
+    working_directory: ~/qualtom
     docker:
       - image: circleci/ruby:3.0.3
         environment:
           BUNDLE_JOBS: 3
-          BUNDLE_RETRY: 3
           BUNDLE_PATH: vendor/bundle
-          PGHOST: 127.0.0.1
-          PGUSER: postgres
+          BUNDLE_RETRY: 3
+          BUNDLER_VERSION: 2.2.32
           RAILS_ENV: test
-      - image: circleci/postgres:11
+          DB_HOST: 127.0.0.1
+          PG_HOST: 127.0.0.1
+          PGUSER: postgres
+      - image: circleci/postgres:12.0
         environment:
-          POSTGRES_USER: postgres
           POSTGRES_DB: qualtom_test
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+
+commands:
+  configure_bundler:
+    description: Configure bundler
+    steps:
+      - run:
+          name: Configure bundler
+          command: |
+            echo 'export BUNDLER_VERSION=$(cat Gemfile.lock | tail -1 | tr -d " ")' >> $BASH_ENV
+            source $BASH_ENV
+            gem install bundler
+
+jobs:
+  build:
+    executor: default
     steps:
       - checkout
-      - run:
-          name: Which bundler?
-          command: bundle -v
+      - ruby/install-deps
       - restore_cache:
           keys:
-            - qualtom-bundle-v2-{{ checksum "Gemfile.lock" }}
-            - qualtom-bundle-v2-
-      - run:
-          name: Bundle Install
-          command: bundle check --path vendor/bundle || bundle install --deployment
-      - save_cache:
-          key: qualtom-bundle-v2-{{ checksum "Gemfile.lock" }}
-          paths:
-            - vendor/bundle
+            - qualtom-{{ .Branch }}-{{ checksum "Gemfile.lock" }}
+            - qualtom-
       - run:
           name: Wait for DB
-          command: dockerize -wait tcp://localhost:5432 -timeout 1m
+          command: dockerize -wait tcp://127.0.0.1:5432 -timeout 1m
       - run:
-          name: Database setup
-          command: bin/rails db:create db:schema:load --trace
+          name: Setup DB
+          command: |
+            bundle exec rails db:create db:schema:load --trace
+            bundle exec rails db:migrate
       - run:
-          name: Run rspec in parallel
+          name: RSpec
           command: |
             bundle exec rspec --profile 10 \
-                              --format RspecJunitFormatter \
-                              --out test_results/rspec.xml \
-                              --format progress \
-                              $(circleci tests glob "spec/**/*_spec.rb" | circleci tests split --split-by=timings)
-      - store_test_results:
-          path: test_results
+                              --format progress
+      - store_artifacts:
+          path: coverage
+      - save_cache:
+          key: qualtom-{{ .Branch }}-{{ checksum "Gemfile.lock" }}
+          paths:
+            - vendor/bundle
+      - persist_to_workspace:
+          root: ~/
+          paths:
+            - ./qualtom
+
+workflows:
+  version: 2
+  integration:
+    jobs:
+      - build
