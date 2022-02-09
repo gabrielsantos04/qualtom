@@ -36,6 +36,9 @@ group :development, :test do
   gem 'database_cleaner'
   gem 'rspec_junit_formatter'
   gem 'dotenv-rails'
+  gem 'pry'
+  gem 'pry-byebug'
+  gem 'rails-controller-testing'
 end
 
 group :development do
